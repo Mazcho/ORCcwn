@@ -202,3 +202,14 @@ if tool_option == "Tools Dataps Nasional":
 elif tool_option == "Tools Preprocessing DataJATENG":
     st.title("🧪 Tools Preprocessing Data JATENG")
     st.info("📌 Fitur preprocessing DataJATENG akan segera hadir. Silakan tunggu pembaruan selanjutnya.")
+
+# Footer
+st.markdown(
+    """
+    <hr style="margin-top: 50px;">
+    <div style="text-align: center; font-size: 14px; color: grey;">
+        Created by <strong>MazCho</strong> - <em>CWN Python Developer</em>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
