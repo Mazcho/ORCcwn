@@ -6,6 +6,10 @@ import re
 import io
 import zipfile
 from pathlib import Path
+import streamlit as st
+import pandas as pd
+import zipfile
+from io import BytesIO
 
 # ------------------- Konstanta untuk deteksi FEE -------------------
 BLOCK_HEIGHT = 180  # tinggi area 1 paket (perkiraan)
@@ -200,8 +204,156 @@ if tool_option == "Tools Dataps Nasional":
 
 # ===== Tools 2: Placeholder Preprocessing JATENG =====
 elif tool_option == "Tools Preprocessing DataJATENG":
-    st.title("🧪 Tools Preprocessing Data JATENG")
-    st.info("📌 Fitur preprocessing DataJATENG akan segera hadir. Silakan tunggu pembaruan selanjutnya.")
+    st.title("📊 Aplikasi Preprocessing Data Internet")
+    # Fungsi pembaca file universal
+    def load_file(uploaded_file):
+        if uploaded_file.name.endswith('.csv'):
+            return pd.read_csv(uploaded_file)
+        elif uploaded_file.name.endswith(('.xlsx', '.xls')):
+            return pd.read_excel(uploaded_file)
+        elif uploaded_file.name.endswith('.txt'):
+            return pd.read_csv(uploaded_file, delimiter='\t')
+        else:
+            st.warning(f"Format file {uploaded_file.name} tidak dikenali.")
+            return None
+
+    # Inisialisasi session_state
+    if 'final_df' not in st.session_state:
+        st.session_state.final_df = None
+
+    # Tab navigasi
+    tab1, tab2, tab3 = st.tabs(["🔧 Preprocessing", "📂 Split & Download","HELP"])
+
+    with tab1:
+        st.subheader("📁 Upload File")
+        data_file = st.file_uploader("Upload file data mentah", type=["csv", "xlsx", "xls", "txt"], key="data")
+        sf_file = st.file_uploader("Upload file full_sales_force", type=["csv", "xlsx", "xls", "txt"], key="sf")
+        tl_file = st.file_uploader("Upload file full_team_leader", type=["csv", "xlsx", "xls", "txt"], key="tl")
+
+        if data_file and sf_file and tl_file:
+            df = load_file(data_file)
+            sf_df = load_file(sf_file)
+            tl_df = load_file(tl_file)
+
+            if df is not None and sf_df is not None and tl_df is not None:
+                # Preprocessing nama: hilangkan spasi depan-belakang dan kapitalisasi
+                sf_df['Nama SF'] = sf_df['user_name'].str.strip().str.title().str.replace("'", "", regex=False)
+                tl_df['Nama TL'] = tl_df['user_name'].str.strip().str.title().str.replace("'", "", regex=False)
+                df['Nama SF'] = df['Nama SF'].astype(str).str.strip().str.title().str.replace("'", "", regex=False)
+                df['Nama TL'] = df['Nama TL'].astype(str).str.strip().str.title().str.replace("'", "", regex=False)
+
+                # Ambil sf_id berdasarkan kodesf
+                sf_df = sf_df.rename(columns={'sf_id': 'sf_id_master'})
+                df = df.merge(sf_df[['sf_id_master']], left_on='Kode SF', right_on='sf_id_master', how='left')
+                df = df.rename(columns={'sf_id_master': 'sf_id'})
+
+                # Ambil tl_id berdasarkan Nama TL
+                df = df.merge(tl_df[['Nama TL', 'tl_id']], on='Nama TL', how='left')
+
+                # Ubah tanggal
+                df['Tanggal PS'] = pd.to_datetime(df['Tanggal PS'], errors='coerce')
+                df['waktu_ps'] = df['Tanggal PS'].dt.strftime('%Y-%m-%d %H:%M:%S')
+                df['tanggal_angka'] = df['Tanggal PS'].dt.strftime('%d')
+
+                # Isi NaN ID
+                df['sf_id'] = df['sf_id'].fillna(0)
+                df['tl_id'] = df['tl_id'].fillna(0)
+
+                # Final dataframe
+                final_df = df[['sf_id', 'tl_id', 'Order ID', 'Nomor Internet', 'waktu_ps', 'tanggal_angka', 'Paket', 'ARPU']]
+                final_df.columns = ['sf_id', 'tl_id', 'track_id', 'no_internet', 'waktu_ps', 'tanggal_angka', 'paket_name', 'arpu']
+
+                # Simpan ke session
+                st.session_state.final_df = final_df
+
+                # Tampilkan
+                st.subheader("✅ Data Hasil Preprocessing")
+                st.dataframe(final_df)
+
+                # Download CSV
+                csv = final_df.to_csv(index=False).encode('utf-8')
+                st.download_button("⬇️ Download CSV", csv, "data_preprocessed.csv", "text/csv")
+
+    with tab2:
+        st.subheader("📂 Split dan Download Excel per 450 Baris")
+
+        if st.session_state.final_df is not None:
+            final_df = st.session_state.final_df
+
+            if st.button("🔀 Split & Zip Excel Files"):
+                buffer = BytesIO()
+                with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+                    total_rows = final_df.shape[0]
+                    num_chunks = (total_rows // 450) + int(total_rows % 450 != 0)
+
+                    for i in range(num_chunks):
+                        start = i * 450
+                        end = start + 450
+                        chunk = final_df.iloc[start:end]
+
+                        excel_buffer = BytesIO()
+                        chunk.to_excel(excel_buffer, index=False, sheet_name=f'Data_{i+1}')
+                        excel_filename = f'output_part_{i+1}.xlsx'
+                        zipf.writestr(excel_filename, excel_buffer.getvalue())
+
+                st.success(f"Berhasil membuat {num_chunks} file dan mengompres ke ZIP.")
+
+                # Tombol download ZIP
+                st.download_button(
+                    label="⬇️ Download ZIP",
+                    data=buffer.getvalue(),
+                    file_name="split_excel_output.zip",
+                    mime="application/zip"
+                )
+        else:
+            st.info("⚠️ Silakan lakukan preprocessing terlebih dahulu di Tab 1.")
+    
+    with tab3:
+        st.subheader("🆘 Panduan Penggunaan Aplikasi HELP")
+        st.markdown("""
+        ### 📌 Langkah-langkah Penggunaan:
+
+        1. **Upload File** (di Tab 🔧 Preprocessing)
+            - File **data mentah**: berisi data transaksi atau pemasangan.
+            - File **full_sales_force**: wajib ada kolom `user_name` dan `sf_id`.
+            - File **full_team_leader**: wajib ada kolom `user_name` dan `tl_id`.
+
+        2. **Proses Preprocessing**
+            - Nama SF dan TL akan dibersihkan dan disesuaikan.
+            - Dicocokkan dengan ID dari master SF & TL.
+            - Tanggal akan diformat otomatis.
+
+        3. **Split dan Download**
+            - Buka tab 📂 *Split & Download*.
+            - Klik tombol **🔀 Split & Zip Excel Files**.
+            - Data akan dibagi tiap 450 baris dan dijadikan file Excel.
+            - File dikompresi ke format ZIP dan bisa langsung diunduh.
+
+        ---
+
+        ### 📄 Unduh Panduan Lengkap (PDF)
+
+        👉 [Klik di sini untuk download data Team Leader (wajib login akun CWN)](https://creativewidyanusantara.co.id/admincwn/manage_tl/)
+                    
+
+        👉 [Klik di sini untuk download data Sales FOrce (wajib login akun CWN)](https://creativewidyanusantara.co.id/admincwn/admincwn/updatesf/)
+
+        ---
+
+        ### ❗ Tips & Catatan:
+        - Gunakan format file yang didukung: `.csv`, `.xlsx`, `.xls`, `.txt`
+        - Pastikan kolom pada data sesuai dengan ketentuan aplikasi.
+        - Proses split bisa dilakukan *setelah* preprocessing berhasil.
+
+        ---
+
+        📬 **Kontak Bantuan Teknis:**
+        Jika mengalami kendala, silakan hubungi tim support melalui:
+        - 📧 Email: support@creativewidyanusantara.co.id
+        - 🌐 Website: [creativewidyanusantara.co.id](https://creativewidyanusantara.co.id)
+        """)
+
+
 
 # Footer
 st.markdown(
