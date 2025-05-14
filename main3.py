@@ -270,9 +270,17 @@ elif tool_option == "Tools Preprocessing DataJATENG":
                 st.subheader("✅ Data Hasil Preprocessing")
                 st.dataframe(final_df)
 
-                # Download CSV
-                csv = final_df.to_csv(index=False).encode('utf-8')
-                st.download_button("⬇️ Download CSV", csv, "data_preprocessed.csv", "text/csv")
+                # Download Excel (rapi seperti di Tab 2)
+                excel_buffer = io.BytesIO()
+                final_df.to_excel(excel_buffer, index=False, sheet_name='Preprocessed Data')
+                excel_buffer.seek(0)
+
+                st.download_button(
+                    label="⬇️ Download Excel",
+                    data=excel_buffer,
+                    file_name="data_preprocessed.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
     with tab2:
         st.subheader("📂 Split dan Download Excel per 450 Baris")
