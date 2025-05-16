@@ -222,7 +222,7 @@ elif tool_option == "Tools Preprocessing DataJATENG":
         st.session_state.final_df = None
 
     # Tab navigasi
-    tab1, tab2, tab3 = st.tabs(["🔧 Preprocessing", "📂 Split & Download","HELP"])
+    tab1, tab2, tab3, tab4 = st.tabs(["🔧 Preprocessing", "📂 Split & Download","HELP","Deteksi Sistem SAles baru"])
 
     with tab1:
         st.subheader("📁 Upload File")
@@ -361,8 +361,135 @@ elif tool_option == "Tools Preprocessing DataJATENG":
         - 🌐 Website : [creativewidyanusantara.co.id](https://creativewidyanusantara.co.id)
         """)
 
+    with tab4:
+        st.subheader("🧠 Deteksi Nama Sales Baru dari Data PS (Upload File)")
 
+        st.title("Daftar TEAM LEADER")
+        data_ref = {
+            "tl_id": [
+                "SV4SM04","SVPRW65", "JUN2451", "SV4SO90",
+                "RIO2633", "SV4SO50", "SV4SM129", "SV4KU43", "SV4SM130"
+            ],
+            "user_name": [
+                "Aditya Arga Zulyan R","Apriwandi", "Juniaga Gunantara",
+                "Muhamad Najib", "Rio Religio", "Sadik Ari Nugroho", "Supriyanto",
+                "Sya'roni", "Tessa Fikri Kusumaningrum"
+            ]
+        }
 
+        df_ref = pd.DataFrame(data_ref)
+
+        st.table(df_ref)
+
+        # Data referensi tl_id dan user_name yang kamu berikan
+
+        # # Data WOK dan Branch ID
+        # datawok = {
+        #     "WOK": ["WOK 1 : DEMAK", "WOK 2 : SEMARANG 2", "WOK 3 : SURAKARTA"],
+        #     "BRANCH ID": ["1.15", "1.15", "1.10"]
+        # }
+
+        # # Membuat DataFrame
+        # dfwok = pd.DataFrame(datawok)
+
+        # # Judul aplikasi
+        # st.title("Daftar WOK dan Branch ID")
+
+        # # Tampilkan tabel
+        # st.table(dfwok)
+
+        st.title("DETEKSI SALES BARU")
+    
+        data_file = st.session_state.get("data")
+        sf_file = st.session_state.get("sf")
+
+        if data_file is None or sf_file is None:
+            st.info("📂 Silakan upload file data mentah dan full_sales_force terlebih dahulu di Tab 🔧 Preprocessing.")
+        else:
+            def load_file(uploaded_file):
+                if uploaded_file.name.endswith('.csv'):
+                    return pd.read_csv(uploaded_file)
+                elif uploaded_file.name.endswith(('.xlsx', '.xls')):
+                    return pd.read_excel(uploaded_file)
+                elif uploaded_file.name.endswith('.txt'):
+                    return pd.read_csv(uploaded_file, delimiter='\t')
+                else:
+                    st.warning(f"Format file {uploaded_file.name} tidak dikenali.")
+                    return None
+
+            df = load_file(data_file)
+            sf_df_original = load_file(sf_file)
+
+            if df is not None and sf_df_original is not None:
+                if 'Nama SF' not in df.columns:
+                    st.error("❌ Kolom 'Nama SF' tidak ditemukan dalam data yang diunggah.")
+                else:
+                    sf_nama_master = sf_df_original['user_name'].astype(str).str.strip().str.title().str.replace("'", "", regex=False).unique()
+                    cleaned_nama_sf_from_df = df['Nama SF'].astype(str).dropna().str.strip().str.title().str.replace("'", "", regex=False).unique()
+                    sales_baru = sorted([nama for nama in cleaned_nama_sf_from_df if nama not in sf_nama_master])
+
+                    if len(sales_baru) == 0:
+                        st.success("✅ Tidak ditemukan nama Sales Force baru.")
+                    else:
+                        st.warning(f"⚠️ Ditemukan {len(sales_baru)} nama Sales Force baru.")
+
+                        # Ambil hanya kode TL (tl_id) tanpa nama
+                        if 'tl_id' in sf_df_original.columns:
+                            sf_df_tl = sf_df_original[['tl_id']].drop_duplicates().dropna()
+                            tl_ids = sorted(sf_df_tl['tl_id'].astype(str).unique())
+                        else:
+                            st.warning("Data Team Leader tidak lengkap. Kolom 'tl_id' diperlukan.")
+                            tl_ids = []
+
+                        # Buat dataframe sales baru dengan default values
+                        new_sf_df = pd.DataFrame({
+                            'sf_id': ['' for _ in sales_baru],
+                            'user_name': sales_baru,
+                            'email': ['newsf@gmail.com' for _ in sales_baru],
+                            'no_hp': ['' for _ in sales_baru],
+                            'tl_id': ['' for _ in sales_baru],
+                            'tele_uid': ['tele-' for _ in sales_baru],
+                        })
+
+                        st.markdown("### Pilih Kode TL (tl_id) untuk setiap Sales Baru:")
+
+                        selected_tls = []
+                        for i, nama_sf in enumerate(sales_baru):
+                            selected_tl = st.selectbox(
+                                label=f"Kode TL untuk {nama_sf}",
+                                options=[""] + tl_ids,
+                                index=0,
+                                key=f"tl_select_{i}"
+                            )
+                            selected_tls.append(selected_tl)
+
+                        new_sf_df['tl_id'] = selected_tls
+
+                        # Editor dataframe: semua kolom bisa diedit
+                        edited_sf_df = st.data_editor(
+                            new_sf_df,
+                            column_order=[
+                                'sf_id', 'user_name', 'email', 'no_hp',
+                                'tl_id', 'tele_uid'
+                            ],
+                            use_container_width=True,
+                            num_rows="dynamic"
+                        )
+
+                        if st.button("Download Data Sales Baru (Excel)"):
+                            output = BytesIO()
+                            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                                final_df = edited_sf_df.copy()
+                                final_df.to_excel(writer, index=False, sheet_name='SalesBaru')
+                                writer.save()
+                                processed_data = output.getvalue()
+
+                            st.download_button(
+                                label="📥 Download Excel",
+                                data=processed_data,
+                                file_name='sales_baru.xlsx',
+                                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                            )
 # Footer
 st.markdown(
     """
