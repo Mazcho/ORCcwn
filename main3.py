@@ -10,11 +10,11 @@ import streamlit as st
 import pandas as pd
 import zipfile
 from io import BytesIO
-import pywhatkit as pwk  # untuk kirim WhatsApp via WhatsApp Web
-import pyautogui
-import time
-import re
-import webbrowser   # <== ini yang kemarin bikin error
+# import pywhatkit as pwk  # untuk kirim WhatsApp via WhatsApp Web
+# import pyautogui
+# import time
+# import re
+# import webbrowser   # <== ini yang kemarin bikin error
 
 # ------------------- Konstanta untuk deteksi FEE -------------------
 BLOCK_HEIGHT = 180  # tinggi area 1 paket (perkiraan)
