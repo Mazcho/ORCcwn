@@ -6,15 +6,28 @@ import re
 import io
 import zipfile
 from pathlib import Path
-import streamlit as st
-import pandas as pd
-import zipfile
 from io import BytesIO
-# import pywhatkit as pwk  # untuk kirim WhatsApp via WhatsApp Web
-# import pyautogui
-# import time
-# import re
-# import webbrowser   # <== ini yang kemarin bikin error
+import pywhatkit as pwk  # untuk kirim WhatsApp via WhatsApp Web
+import pyautogui
+import time
+import webbrowser
+import urllib.parse
+import locale
+# locale.setlocale(locale.LC_ALL, 'id_ID.UTF-8')  # pastikan sistem support
+
+# tagihan_rp = locale.currency(int(tagihan), grouping=True)
+
+def format_rupiah(angka: str) -> str:
+    # hapus Rp kalau sudah ada
+    angka = str(angka).replace("Rp", "").replace(",", ".").replace(".", "").strip()
+    try:
+        nilai = int(angka)
+    except ValueError:
+        return angka  # kalau gagal parsing, balikin apa adanya
+    return f"Rp{nilai:,.2f}".replace(",", ".").replace(".", ",", 1)
+
+
+
 
 # ------------------- Konstanta untuk deteksi FEE -------------------
 BLOCK_HEIGHT = 180  # tinggi area 1 paket (perkiraan)
@@ -497,72 +510,126 @@ elif tool_option == "Tools Preprocessing DataJATENG":
                             )
 # ===== Tools : WhatsApp Blast =====
 # ===== Tools : WhatsApp Blast =====
-# elif tool_option == "WA Blast":
-#     st.title("📲 Aplikasi WhatsApp Blast IndiHome")
+# ===== Tools : WhatsApp Blast =====
+elif tool_option == "WA Blast":
+    st.title("📲 Aplikasi WhatsApp Blast IndiHome")
 
-#     uploaded_file = st.file_uploader("Upload file CSV/XLSX", type=["csv", "xlsx"])
+    uploaded_file = st.file_uploader("Upload file Excel", type=["csv", "xlsx"])
 
-#     if uploaded_file:
-#         # Paksa baca kolom No_hp sebagai string
-#         if uploaded_file.name.endswith(".csv"):
-#             df = pd.read_csv(uploaded_file, dtype={"No_hp": str})
-#         else:
-#             df = pd.read_excel(uploaded_file, dtype={"No_hp": str})
+    if uploaded_file:
+        # Paksa baca kolom no_telpon sebagai string
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file, dtype={"no_telpon": str})
+        else:
+            df = pd.read_excel(uploaded_file, dtype={"no_telpon": str})
 
-#         # Pastikan kolom nomor hp tidak ada koma / spasi
-#         df["No_hp"] = df["No_hp"].astype(str).str.replace(",", "").str.strip()
+        # Bersihkan kolom no_telpon
+        df["no_telpon"] = (
+            df["no_telpon"]
+            .astype(str)
+            .str.replace(r"[,\s\.\-]", "", regex=True)  # hapus spasi, koma, titik, strip
+            .str.strip()
+        )
 
-#         st.write("📋 Data Pelanggan:")
-#         st.dataframe(df.astype(str))
+        st.write("📋 Data Pelanggan:")
+        st.dataframe(df.astype(str))
 
-#         delay = st.number_input("⏳ Delay antar pesan (detik)", 3, 30, 5)
+        # ===== Validasi Nomor Telepon (harus diawali 62) =====
+        def is_valid_number(no_hp):
+            # Pastikan hanya angka dan diawali 62
+            if re.match(r"^62\d{8,13}$", no_hp):
+                return True
+            return False
 
-#         if st.button("🚀 Kirim WhatsApp Blast"):
-#             st.info("🔄 Membuka WhatsApp Web... login dulu kalau belum.")
-#             webbrowser.open("https://web.whatsapp.com/")
-#             time.sleep(15)  # kasih waktu user login WA Web
+        # Pisahkan nomor valid dan tidak valid
+        df["valid"] = df["no_telpon"].apply(is_valid_number)
+        df_valid = df[df["valid"] == True].copy()
+        df_invalid = df[df["valid"] == False].copy()
 
-#             for idx, row in df.iterrows():
-#                 no_internet = str(row["no_internet"])
-#                 nominal = row["nominal"]
-#                 no_hp = str(row["No_hp"]).strip()
+        st.success(f"✅ Ditemukan {len(df_valid)} nomor valid (format 62...).")
+        st.warning(f"⚠️ Ditemukan {len(df_invalid)} nomor tidak valid (tidak diawali 62).")
 
-#                 # 🔎 Validasi hanya angka + tanda +
-#                 if not re.match(r"^\+?\d+$", no_hp):
-#                     st.warning(f"⚠️ Baris {idx+2}: Nomor {no_hp} tidak valid, dilewati.")
-#                     continue
+        # Tampilkan dua tabel
+        with st.expander("📱 Nomor Valid (format 62...)"):
+            st.dataframe(df_valid.astype(str))
 
-#                 # 🔄 Format nomor internasional Indonesia
-#                 if no_hp.startswith("0"):
-#                     no_hp = "+62" + no_hp[1:]
-#                 elif not no_hp.startswith("+"):
-#                     no_hp = "+62" + no_hp
+        with st.expander("🚫 Nomor Tidak Valid"):
+            st.dataframe(df_invalid.astype(str))
 
-#                 # 🔎 Validasi panjang nomor
-#                 if len(no_hp) < 10:
-#                     st.warning(f"⚠️ Baris {idx+2}: Nomor {no_hp} terlalu pendek, dilewati.")
-#                     continue
+        # ===== Unduh Nomor Tidak Valid =====
+        if not df_invalid.empty:
+            invalid_excel = io.BytesIO()
+            df_invalid.to_excel(invalid_excel, index=False)
+            invalid_excel.seek(0)
 
-#                 # 📩 Pesan personal
-#                 pesan = f"Halo, jangan lupa membayar tagihan IndiHome anda dengan nomor internet {no_internet}, dengan nominal {nominal:,}."
+            st.download_button(
+                label="⬇️ Download Nomor Tidak Valid (Excel)",
+                data=invalid_excel,
+                file_name="nomor_tidak_valid.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
 
-#                 # Buka chat langsung ke nomor dengan pesan
-#                 url = f"https://web.whatsapp.com/send?phone={no_hp}&text={pesan}"
-#                 webbrowser.open(url)
-#                 time.sleep(8)  # tunggu halaman WA load
+        # ===== Jika Ada Nomor Valid, Lanjutkan =====
+        if not df_valid.empty:
+            delay = st.number_input("⏳ Delay antar pesan (detik)", 3, 30, 5)
 
-#                 # Tekan Enter untuk kirim pesan
-#                 pyautogui.press("enter")
-#                 st.success(f"✅ Pesan terkirim ke {no_hp}")
+            if st.button("🚀 Kirim WhatsApp Blast"):
+                st.info("🔄 Membuka WhatsApp Web... login dulu kalau belum.")
+                webbrowser.open("https://web.whatsapp.com/")
+                time.sleep(15)  # kasih waktu user login WA Web
 
-#                 time.sleep(delay)  # jeda antar pesan
-# Footer
-st.markdown(
-    """
-    <hr style="margin-top: 50px;">
-    <div style="text-align: center; font-size: 14px; color: grey;">
-        Created by <strong>MazCho</strong> - <em>CWN Python Developer</em>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+                for idx, row in df_valid.iterrows():
+                    try:
+                        no_hp = str(row["no_telpon"]).strip()
+                        nama = str(row["Nama"])
+                        no_indihome = str(row["No Indihome"])
+                        tagihan = str(row["Tagihan"])
+
+                        # Tambahkan tanda +
+                        no_hp = "+" + no_hp
+
+                        # Format jumlah tagihan ke Rupiah
+                        jumlah_tagihan = format_rupiah(tagihan)
+
+                        # Template pesan WhatsApp
+                        pesan = f"""Pelanggan IndiHome yang terhormat,
+
+Berikut terlampir informasi tagihan IndiHome Anda, dengan rincian sebagai berikut:
+Nama Layanan: IndiHome
+Nomor Layanan: {no_indihome}
+Nama Pelanggan: {nama}
+Bulan : September 2025
+Jumlah Tagihan: {jumlah_tagihan} (Termasuk biaya administrasi layanan, meterai, dan PPN)
+
+Untuk tetap dapat menikmati layanan IndiHome, pembayaran tagihan dapat dilakukan dengan klik link: http://tsel.id/bayarindihome
+
+Mohon abaikan pemberitahuan ini bila Anda telah melakukan pembayaran."""
+
+                        pesan_encoded = urllib.parse.quote(pesan)
+                        url = f"https://web.whatsapp.com/send?phone={no_hp}&text={pesan_encoded}"
+
+                        webbrowser.open(url)
+                        time.sleep(15)  # tunggu halaman WA load
+
+                        pyautogui.press("enter")
+                        st.success(f"✅ Pesan terkirim ke {no_hp}")
+
+                    except Exception as e:
+                        st.error(f"❌ Gagal kirim ke {no_hp} | Error: {e}")
+
+                    time.sleep(delay)
+
+                st.info("🎉 Proses pengiriman WhatsApp Blast selesai.")
+
+    # Footer
+    st.markdown(
+        """
+        <hr style="margin-top: 50px;">
+        <div style="text-align: center; font-size: 14px; color: grey;">
+            Created by <strong>MazCho</strong> - <em>CWN Python Developer</em>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
