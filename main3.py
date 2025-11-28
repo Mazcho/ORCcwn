@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 from io import BytesIO
 # import pywhatkit as pwk  # untuk kirim WhatsApp via WhatsApp Web
-import pyautogui
+# import pyautogui
 import time
 import webbrowser
 import urllib.parse
