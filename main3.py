@@ -7,7 +7,7 @@ import io
 import zipfile
 from pathlib import Path
 from io import BytesIO
-import pywhatkit as pwk  # untuk kirim WhatsApp via WhatsApp Web
+# import pywhatkit as pwk  # untuk kirim WhatsApp via WhatsApp Web
 import pyautogui
 import time
 import webbrowser
@@ -79,7 +79,7 @@ st.set_page_config(page_title="OCR Gambar ke Excel", page_icon="📄", layout="w
 
 # ===== Sidebar Navigation =====
 st.sidebar.title("🔧 Menu Tools")
-tool_option = st.sidebar.radio("Pilih Tools:", ["Tools Dataps Nasional", "Tools Preprocessing DataJATENG","WA Blast"])
+tool_option = st.sidebar.radio("Pilih Tools:", ["Tools Dataps Nasional", "Tools Preprocessing DataJATENG"])
 
 # ===== Tools 1: OCR Tools =====
 if tool_option == "Tools Dataps Nasional":
@@ -508,128 +508,128 @@ elif tool_option == "Tools Preprocessing DataJATENG":
                                 file_name='sales_baru.xlsx',
                                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                             )
-# ===== Tools : WhatsApp Blast =====
-# ===== Tools : WhatsApp Blast =====
-# ===== Tools : WhatsApp Blast =====
-elif tool_option == "WA Blast":
-    st.title("📲 Aplikasi WhatsApp Blast IndiHome")
+# # ===== Tools : WhatsApp Blast =====
+# # ===== Tools : WhatsApp Blast =====
+# # ===== Tools : WhatsApp Blast =====
+# elif tool_option == "WA Blast":
+#     st.title("📲 Aplikasi WhatsApp Blast IndiHome")
 
-    uploaded_file = st.file_uploader("Upload file Excel", type=["csv", "xlsx"])
+#     uploaded_file = st.file_uploader("Upload file Excel", type=["csv", "xlsx"])
 
-    if uploaded_file:
-        # Paksa baca kolom no_telpon sebagai string
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file, dtype={"no_telpon": str})
-        else:
-            df = pd.read_excel(uploaded_file, dtype={"no_telpon": str})
+#     if uploaded_file:
+#         # Paksa baca kolom no_telpon sebagai string
+#         if uploaded_file.name.endswith(".csv"):
+#             df = pd.read_csv(uploaded_file, dtype={"no_telpon": str})
+#         else:
+#             df = pd.read_excel(uploaded_file, dtype={"no_telpon": str})
 
-        # Bersihkan kolom no_telpon
-        df["no_telpon"] = (
-            df["no_telpon"]
-            .astype(str)
-            .str.replace(r"[,\s\.\-]", "", regex=True)  # hapus spasi, koma, titik, strip
-            .str.strip()
-        )
+#         # Bersihkan kolom no_telpon
+#         df["no_telpon"] = (
+#             df["no_telpon"]
+#             .astype(str)
+#             .str.replace(r"[,\s\.\-]", "", regex=True)  # hapus spasi, koma, titik, strip
+#             .str.strip()
+#         )
 
-        st.write("📋 Data Pelanggan:")
-        st.dataframe(df.astype(str))
+#         st.write("📋 Data Pelanggan:")
+#         st.dataframe(df.astype(str))
 
-        # ===== Validasi Nomor Telepon (harus diawali 62) =====
-        def is_valid_number(no_hp):
-            # Pastikan hanya angka dan diawali 62
-            if re.match(r"^62\d{8,13}$", no_hp):
-                return True
-            return False
+#         # ===== Validasi Nomor Telepon (harus diawali 62) =====
+#         def is_valid_number(no_hp):
+#             # Pastikan hanya angka dan diawali 62
+#             if re.match(r"^62\d{8,13}$", no_hp):
+#                 return True
+#             return False
 
-        # Pisahkan nomor valid dan tidak valid
-        df["valid"] = df["no_telpon"].apply(is_valid_number)
-        df_valid = df[df["valid"] == True].copy()
-        df_invalid = df[df["valid"] == False].copy()
+#         # Pisahkan nomor valid dan tidak valid
+#         df["valid"] = df["no_telpon"].apply(is_valid_number)
+#         df_valid = df[df["valid"] == True].copy()
+#         df_invalid = df[df["valid"] == False].copy()
 
-        st.success(f"✅ Ditemukan {len(df_valid)} nomor valid (format 62...).")
-        st.warning(f"⚠️ Ditemukan {len(df_invalid)} nomor tidak valid (tidak diawali 62).")
+#         st.success(f"✅ Ditemukan {len(df_valid)} nomor valid (format 62...).")
+#         st.warning(f"⚠️ Ditemukan {len(df_invalid)} nomor tidak valid (tidak diawali 62).")
 
-        # Tampilkan dua tabel
-        with st.expander("📱 Nomor Valid (format 62...)"):
-            st.dataframe(df_valid.astype(str))
+#         # Tampilkan dua tabel
+#         with st.expander("📱 Nomor Valid (format 62...)"):
+#             st.dataframe(df_valid.astype(str))
 
-        with st.expander("🚫 Nomor Tidak Valid"):
-            st.dataframe(df_invalid.astype(str))
+#         with st.expander("🚫 Nomor Tidak Valid"):
+#             st.dataframe(df_invalid.astype(str))
 
-        # ===== Unduh Nomor Tidak Valid =====
-        if not df_invalid.empty:
-            invalid_excel = io.BytesIO()
-            df_invalid.to_excel(invalid_excel, index=False)
-            invalid_excel.seek(0)
+#         # ===== Unduh Nomor Tidak Valid =====
+#         if not df_invalid.empty:
+#             invalid_excel = io.BytesIO()
+#             df_invalid.to_excel(invalid_excel, index=False)
+#             invalid_excel.seek(0)
 
-            st.download_button(
-                label="⬇️ Download Nomor Tidak Valid (Excel)",
-                data=invalid_excel,
-                file_name="nomor_tidak_valid.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
+#             st.download_button(
+#                 label="⬇️ Download Nomor Tidak Valid (Excel)",
+#                 data=invalid_excel,
+#                 file_name="nomor_tidak_valid.xlsx",
+#                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+#             )
 
-        # ===== Jika Ada Nomor Valid, Lanjutkan =====
-        if not df_valid.empty:
-            delay = st.number_input("⏳ Delay antar pesan (detik)", 3, 30, 5)
+#         # ===== Jika Ada Nomor Valid, Lanjutkan =====
+#         if not df_valid.empty:
+#             delay = st.number_input("⏳ Delay antar pesan (detik)", 3, 30, 5)
 
-            if st.button("🚀 Kirim WhatsApp Blast"):
-                st.info("🔄 Membuka WhatsApp Web... login dulu kalau belum.")
-                webbrowser.open("https://web.whatsapp.com/")
-                time.sleep(15)  # kasih waktu user login WA Web
+#             if st.button("🚀 Kirim WhatsApp Blast"):
+#                 st.info("🔄 Membuka WhatsApp Web... login dulu kalau belum.")
+#                 webbrowser.open("https://web.whatsapp.com/")
+#                 time.sleep(15)  # kasih waktu user login WA Web
 
-                for idx, row in df_valid.iterrows():
-                    try:
-                        no_hp = str(row["no_telpon"]).strip()
-                        nama = str(row["Nama"])
-                        no_indihome = str(row["No Indihome"])
-                        tagihan = str(row["Tagihan"])
+#                 for idx, row in df_valid.iterrows():
+#                     try:
+#                         no_hp = str(row["no_telpon"]).strip()
+#                         nama = str(row["Nama"])
+#                         no_indihome = str(row["No Indihome"])
+#                         tagihan = str(row["Tagihan"])
 
-                        # Tambahkan tanda +
-                        no_hp = "+" + no_hp
+#                         # Tambahkan tanda +
+#                         no_hp = "+" + no_hp
 
-                        # Format jumlah tagihan ke Rupiah
-                        jumlah_tagihan = format_rupiah(tagihan)
+#                         # Format jumlah tagihan ke Rupiah
+#                         jumlah_tagihan = format_rupiah(tagihan)
 
-                        # Template pesan WhatsApp
-                        pesan = f"""Pelanggan IndiHome yang terhormat,
+#                         # Template pesan WhatsApp
+#                         pesan = f"""Pelanggan IndiHome yang terhormat,
 
-Berikut terlampir informasi tagihan IndiHome Anda, dengan rincian sebagai berikut:
-Nama Layanan: IndiHome
-Nomor Layanan: {no_indihome}
-Nama Pelanggan: {nama}
-Bulan : September 2025
-Jumlah Tagihan: {jumlah_tagihan} (Termasuk biaya administrasi layanan, meterai, dan PPN)
+# Berikut terlampir informasi tagihan IndiHome Anda, dengan rincian sebagai berikut:
+# Nama Layanan: IndiHome
+# Nomor Layanan: {no_indihome}
+# Nama Pelanggan: {nama}
+# Bulan : September 2025
+# Jumlah Tagihan: {jumlah_tagihan} (Termasuk biaya administrasi layanan, meterai, dan PPN)
 
-Untuk tetap dapat menikmati layanan IndiHome, pembayaran tagihan dapat dilakukan dengan klik link: http://tsel.id/bayarindihome
+# Untuk tetap dapat menikmati layanan IndiHome, pembayaran tagihan dapat dilakukan dengan klik link: http://tsel.id/bayarindihome
 
-Mohon abaikan pemberitahuan ini bila Anda telah melakukan pembayaran."""
+# Mohon abaikan pemberitahuan ini bila Anda telah melakukan pembayaran."""
 
-                        pesan_encoded = urllib.parse.quote(pesan)
-                        url = f"https://web.whatsapp.com/send?phone={no_hp}&text={pesan_encoded}"
+#                         pesan_encoded = urllib.parse.quote(pesan)
+#                         url = f"https://web.whatsapp.com/send?phone={no_hp}&text={pesan_encoded}"
 
-                        webbrowser.open(url)
-                        time.sleep(15)  # tunggu halaman WA load
+#                         webbrowser.open(url)
+#                         time.sleep(15)  # tunggu halaman WA load
 
-                        pyautogui.press("enter")
-                        st.success(f"✅ Pesan terkirim ke {no_hp}")
+#                         pyautogui.press("enter")
+#                         st.success(f"✅ Pesan terkirim ke {no_hp}")
 
-                    except Exception as e:
-                        st.error(f"❌ Gagal kirim ke {no_hp} | Error: {e}")
+#                     except Exception as e:
+#                         st.error(f"❌ Gagal kirim ke {no_hp} | Error: {e}")
 
-                    time.sleep(delay)
+#                     time.sleep(delay)
 
-                st.info("🎉 Proses pengiriman WhatsApp Blast selesai.")
+#                 st.info("🎉 Proses pengiriman WhatsApp Blast selesai.")
 
-    # Footer
-    st.markdown(
-        """
-        <hr style="margin-top: 50px;">
-        <div style="text-align: center; font-size: 14px; color: grey;">
-            Created by <strong>MazCho</strong> - <em>CWN Python Developer</em>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+#     # Footer
+#     st.markdown(
+#         """
+#         <hr style="margin-top: 50px;">
+#         <div style="text-align: center; font-size: 14px; color: grey;">
+#             Created by <strong>MazCho</strong> - <em>CWN Python Developer</em>
+#         </div>
+#         """,
+#         unsafe_allow_html=True
+#     )
 
 
